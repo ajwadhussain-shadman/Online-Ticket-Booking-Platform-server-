@@ -3,6 +3,7 @@ const cors= require('cors');
 require('dotenv').config();
 const app = express();
 app.use(cors());
+app.use(express.json());
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const port =process.env.PORT || 5000;
 
@@ -33,9 +34,25 @@ async function run() {
 
     
 
-    app.get('/tickets', async (req,res)=>{
-        const result= await ticketsCollection.find().toArray();
+    app.get('/api/tickets', async (req,res)=>{
+         const query={};
+         if(req.query.vendorId){
+          query.vendorId=req.query.vendorId
+         }
+        const result= await ticketsCollection.find(query).toArray();
         res.json(result);
+    }) 
+    app.post('/api/tickets', async(req,res)=>{
+      console.log("REQ BODY:", req.body);
+      const ticket= req.body;
+      const newTicket={
+        ...ticket,
+        verificationStatus:"pending",
+        isAdvertised: false,
+        createdAt: new Date()
+      }
+      const result= await ticketsCollection.insertOne(newTicket);
+      res.send(result);
     })
 
 
