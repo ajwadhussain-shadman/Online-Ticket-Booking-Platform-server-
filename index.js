@@ -42,7 +42,27 @@ async function run() {
          if(req.query.verificationStatus){
           query.verificationStatus=req.query.verificationStatus;
          }
-        const result= await ticketsCollection.find(query).toArray();
+         if(req.query.from){
+          query.from={
+            $regex:req.query.from, $options:"i"
+          }
+         }
+         if(req.query.to){
+          query.to={
+            $regex:req.query.to, $options:"i"
+          }
+         }
+         if(req.query.transportType){
+          query.transportType=req.query.transportType;
+         }
+         const sorting={};
+         if(req.query.sort==="low"){
+          sorting.price=1;
+         }
+         if(req.query.sort==="high"){
+          sorting.price=-1;
+         }
+        const result= await ticketsCollection.find(query).sort(sorting).toArray();
         res.json(result);
     }) 
 
