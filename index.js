@@ -39,6 +39,9 @@ async function run() {
          if(req.query.vendorId){
           query.vendorId=req.query.vendorId
          }
+         if(req.query.verificationStatus){
+          query.verificationStatus=req.query.verificationStatus;
+         }
         const result= await ticketsCollection.find(query).toArray();
         res.json(result);
     }) 
