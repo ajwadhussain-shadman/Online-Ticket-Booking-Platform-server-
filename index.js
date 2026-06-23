@@ -42,6 +42,12 @@ async function run() {
         const result= await ticketsCollection.find(query).toArray();
         res.json(result);
     }) 
+
+    app.get('/api/tickets/:id',async (req,res)=>{
+      const id = req.params.id;
+      const result = await ticketsCollection.findOne({_id:new ObjectId(id)})
+      res.send(result)
+    })
     app.post('/api/tickets', async(req,res)=>{
       console.log("REQ BODY:", req.body);
       const ticket= req.body;
@@ -54,6 +60,17 @@ async function run() {
       const result= await ticketsCollection.insertOne(newTicket);
       res.send(result);
     })
+    app.patch('/api/tickets/:id',async(req,res)=>{
+      const id= req.params.id;
+      const updateTicket=req.body;
+      console.log(updateTicket)
+      const filter={_id: new ObjectId(id)}
+      const updatedDoc={
+        $set:updateTicket
+      }
+      const result= await ticketsCollection.updateOne(filter,updatedDoc)
+      res.send(result)
+    })
       
     app.delete('/api/tickets/:id', async(req,res)=>{
       const id= req.params.id;
@@ -63,6 +80,7 @@ async function run() {
       const result= await ticketsCollection.deleteOne(query);
       res.send(result)
     })
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
