@@ -103,6 +103,18 @@ async function run() {
       const result= await ticketsCollection.deleteOne(query);
       res.send(result)
     })
+    
+    app.get('/api/bookings',async(req,res)=>{
+      const query={};
+      if(req.query.userid){
+       query.userid=req.query.userid
+      }
+      if(req.query.vendorId){
+       query.vendorId=req.query.vendorId
+      }
+      const result= await bookingsCollection.find(query).toArray();
+      res.send(result)
+    })
 
     app.post('/api/bookings',async(req,res)=>{
       const booking= req.body;
