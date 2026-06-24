@@ -127,6 +127,15 @@ async function run() {
       const result= await bookingsCollection.insertOne(newBooking);
       res.send(result);
     })
+    app.patch('/api/bookings/:id',async(req,res)=>{
+      const id= req.params.id;
+      const {status}=req.body;
+      const result= await bookingsCollection.updateOne(
+        {_id:new ObjectId(id)},
+       {  $set:{status}}
+      )
+      res.send(result)
+    })
 
 
     // Send a ping to confirm a successful connection
