@@ -31,7 +31,7 @@ async function run() {
 
      const db = client.db("ticket-booking-platform");
      const ticketsCollection = db.collection("tickets");
-
+    const bookingsCollection=db.collection("bookings");
     
 
     app.get('/api/tickets', async (req,res)=>{
@@ -102,6 +102,18 @@ async function run() {
       }
       const result= await ticketsCollection.deleteOne(query);
       res.send(result)
+    })
+
+    app.post('/api/bookings',async(req,res)=>{
+      const booking= req.body;
+      console.log(booking);
+      const newBooking={
+        ...booking,
+        status: "pending",
+         createdAt: new Date()
+      }
+      const result= await bookingsCollection.insertOne(newBooking);
+      res.send(result);
     })
 
 
