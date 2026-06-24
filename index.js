@@ -32,7 +32,7 @@ async function run() {
      const db = client.db("ticket-booking-platform");
      const ticketsCollection = db.collection("tickets");
     const bookingsCollection=db.collection("bookings");
-    
+    const paymentsCollection=db.collection("payments");
 
     app.get('/api/tickets', async (req,res)=>{
          const query={};
@@ -127,6 +127,8 @@ async function run() {
       const result= await bookingsCollection.insertOne(newBooking);
       res.send(result);
     })
+
+
     app.patch('/api/bookings/:id',async(req,res)=>{
       const id= req.params.id;
       const {status}=req.body;
@@ -135,6 +137,48 @@ async function run() {
        {  $set:{status}}
       )
       res.send(result)
+    })
+
+
+    app.post('/api/payments', async (req,res)=>{
+ const paymentData=req.body;
+ const existingPayment= await paymentsCollection.findOne({
+  stripeSessionId: paymentData.stripeSessionId
+ })
+ if(existingPayment){
+  return res.status(409).send({message:"Payment already recorded"})
+ }
+
+const ticket =
+  await ticketsCollection.findOne({
+    _id: new ObjectId(
+      paymentData.ticketId
+    )
+  });
+  if(ticket.quantity<paymentData.bookingQuantity){
+  return res.status(400).send({ message: "Not enough tickets available" });
+}
+
+ const newPaymentData={
+  ...paymentData,
+  paymentStatus:"paid",
+  createdAt:new Date()
+ }
+
+
+ const result= await paymentsCollection.insertOne(newPaymentData);
+ if(result.insertedId){
+   await bookingsCollection.updateOne({_id: new ObjectId(paymentData.bookingId)},
+ { $set:{status:'paid'}}
+)
+
+await ticketsCollection.updateOne({_id: new ObjectId(paymentData.ticketId)},
+{$inc:{
+  quantity:-paymentData.bookingQuantity
+}}
+)
+ }
+ res.send(result)
     })
 
 
