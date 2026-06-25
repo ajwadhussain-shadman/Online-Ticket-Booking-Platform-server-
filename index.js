@@ -181,6 +181,12 @@ await ticketsCollection.updateOne({_id: new ObjectId(paymentData.ticketId)},
  res.send(result)
     })
 
+ app.get('/api/payments/:userId',async(req,res)=>{
+  const userId=req.params.userId;
+  const result = await paymentsCollection.find({userId}).sort({createdAt:-1}).toArray();
+  res.send(result)
+ })   
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
