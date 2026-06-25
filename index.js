@@ -187,6 +187,38 @@ await ticketsCollection.updateOne({_id: new ObjectId(paymentData.ticketId)},
   res.send(result)
  })   
 
+ app.get('/api/vendor/revenue/:vendorId',async (req,res)=>{
+    const result=await paymentsCollection.aggregate([
+      {
+        $match:{
+          vendorId:req.params.vendorId
+        }
+      },
+      {
+        $group:{
+          _id:null,
+        totalRevenue:{
+          $sum:"$amount"
+        },
+         totalSold:{
+            $sum:"$bookingQuantity"
+          }
+        
+        }
+      }
+    ]).toArray();
+   
+    const totalTicketsAdded=await ticketsCollection.countDocuments({ vendorId:req.params.vendorId})
+
+    const revenue= result[0] || { totalRevenue:0, totalSold:0};
+    res.send(
+      {totalTicketsAdded,
+      totalRevenue : revenue.totalRevenue,
+      totalSold : revenue.totalSold,
+}
+    )
+ })
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
