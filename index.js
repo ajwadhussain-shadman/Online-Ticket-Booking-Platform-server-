@@ -30,9 +30,55 @@ async function run() {
     await client.connect();
 
      const db = client.db("ticket-booking-platform");
+     const testDb=client.db("test");
      const ticketsCollection = db.collection("tickets");
     const bookingsCollection=db.collection("bookings");
     const paymentsCollection=db.collection("payments");
+    const usersCollection=testDb.collection("user");
+
+    app.get('/api/users',async (req,res)=>{
+      const result= await usersCollection.find().toArray();
+      res.send(result)
+    })
+    app.patch('/api/users/role/:id',async(req,res)=>{
+         const {role}=req.body;
+         const result= await usersCollection.updateOne({ _id: new ObjectId(req.params.id)},
+          {
+            $set:{role}
+          }
+        )
+       res.send(result) 
+    })
+    app.patch('/api/users/fraud/:id',async (req,res)=>{
+      const id=req.params.id;
+      const vendor= await usersCollection.findOne({_id:new ObjectId(id),role:"vendor"})
+      if(!vendor) {return res.status(404).send({message:"Vendor not found"})}
+       const fraudResult= await usersCollection.updateOne({
+        _id:new ObjectId(id)
+       },
+       {
+        $set:{
+          isFraud:true,
+        }
+       }
+        
+      ) 
+      
+    const verificationResult= await ticketsCollection.updateMany({
+      vendorId: vendor._id.toString(),
+    },
+     {
+      $set:{
+        verificationStatus: "fraudF"
+      }
+     }
+  )  
+  res.send({
+    fraudResult,
+    verificationResult
+  })
+
+    })
 
     app.get('/api/tickets', async (req,res)=>{
          const query={};
@@ -74,6 +120,13 @@ async function run() {
     app.post('/api/tickets', async(req,res)=>{
       console.log("REQ BODY:", req.body);
       const ticket= req.body;
+      const vendor=await usersCollection.findOne(
+        {_id:new ObjectId(ticket.vendorId)}
+      )
+
+      if(vendor.isFraud){
+        return res.status(403).send({message:"Fraud Vendor cannot add tickets."})
+      }
       const newTicket={
         ...ticket,
         verificationStatus:"pending",
@@ -201,18 +254,36 @@ await ticketsCollection.updateOne({_id: new ObjectId(paymentData.ticketId)},
           $sum:"$amount"
         },
          totalSold:{
-            $sum:"$bookingQuantity"
+            $sum:{
+              $toInt: "$bookingQuantity"
+            }
+          
           }
         
         }
       }
     ]).toArray();
    
-    const totalTicketsAdded=await ticketsCollection.countDocuments({ vendorId:req.params.vendorId})
-
+    const vendorAddedTicket= await ticketsCollection.aggregate([
+      {
+        $match:{
+          vendorId:req.params.vendorId
+        }
+      },
+      {
+        $group: {
+          _id:null,
+          totalTicketsAdded:{
+            $sum:"$quantity"
+          }
+        }
+      }
+    ]).toArray();
+    const totalTicket= vendorAddedTicket[0] || {totalTicketsAdded:0}
+    console.log( vendorAddedTicket[0] )
     const revenue= result[0] || { totalRevenue:0, totalSold:0};
     res.send(
-      {totalTicketsAdded,
+      {totalTicketsAdded:totalTicket.totalTicketsAdded,
       totalRevenue : revenue.totalRevenue,
       totalSold : revenue.totalSold,
 }
