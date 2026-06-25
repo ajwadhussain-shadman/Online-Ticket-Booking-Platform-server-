@@ -316,6 +316,13 @@ await ticketsCollection.updateOne({_id: new ObjectId(paymentData.ticketId)},
 res.send(result)
  })
 
+ app.get('/api/ticket/latest',async(req,res)=>{
+  const result= await ticketsCollection.find({
+      verificationStatus:"approved",
+  }).sort({createdAt:-1}).limit(8).toArray()
+  res.send(result)
+ })
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
