@@ -290,6 +290,32 @@ await ticketsCollection.updateOne({_id: new ObjectId(paymentData.ticketId)},
     )
  })
 
+ app.get('/api/ticket/advertise',async(req,res)=>{
+   
+  const result= await ticketsCollection.find({verificationStatus:"approved", isAdvertised:true}).toArray();
+  res.json(result)
+       
+ })
+ app.patch('/api/tickets/advertise/:id',async(req,res)=>{
+  const id= req.params.id;
+ const { isAdvertised}=req.body;
+  const advertiseCount= await ticketsCollection.countDocuments({
+    isAdvertised:true
+  })
+  if(isAdvertised && advertiseCount>=6){
+    return res.status(400).send({message:"Maximum 6 ticket can be advertised"})
+  }
+
+  const result= await ticketsCollection.updateOne({
+    _id: new ObjectId(id)
+  },
+  {
+  $set:{isAdvertised:isAdvertised}
+  }
+)
+res.send(result)
+ })
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
