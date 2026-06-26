@@ -73,7 +73,7 @@ async function run() {
     const paymentsCollection=db.collection("payments");
     const usersCollection=testDb.collection("user");
 
-    app.get('/api/users', async (req,res)=>{
+    app.get('/api/users', verifyToken,verifyAdmin, async (req,res)=>{
       const result= await usersCollection.find().toArray();
       res.send(result)
     })
@@ -118,6 +118,8 @@ async function run() {
     })
 
     app.get('/api/tickets', async (req,res)=>{
+      const {page=1,limit=9}=req.query;
+       const skip=(Number(page)-1)*Number(limit);
          const query={};
          if(req.query.vendorId){
           query.vendorId=req.query.vendorId
@@ -145,11 +147,14 @@ async function run() {
          if(req.query.sort==="high"){
           sorting.price=-1;
          }
-        const result= await ticketsCollection.find(query).sort(sorting).toArray();
-        res.json(result);
+        const result= await ticketsCollection.find(query).sort(sorting).skip(skip).limit(Number(limit)).toArray();
+        const totalData=await ticketsCollection.countDocuments(query);
+        const totalPage=Math.ceil(totalData/Number(limit))
+
+        res.send({data:result,page:Number(page),totalPage});
     }) 
 
-    app.get('/api/tickets/:id',async (req,res)=>{
+    app.get('/api/tickets/:id',verifyToken, async (req,res)=>{
       const id = req.params.id;
       const result = await ticketsCollection.findOne({_id:new ObjectId(id)})
       res.send(result)
@@ -174,7 +179,7 @@ async function run() {
       const result= await ticketsCollection.insertOne(newTicket);
       res.send(result);
     })
-    app.patch('/api/tickets/:id',verifyToken,verifyVendor, async(req,res)=>{
+    app.patch('/api/tickets/:id',verifyToken, async(req,res)=>{
       const id= req.params.id;
       const updateTicket=req.body;
       console.log(updateTicket)
@@ -185,6 +190,7 @@ async function run() {
       const result= await ticketsCollection.updateOne(filter,updatedDoc)
       res.send(result)
     })
+    
       
     app.delete('/api/tickets/:id',verifyToken,verifyVendor, async(req,res)=>{
       const id= req.params.id;
@@ -360,7 +366,6 @@ res.send(result)
   }).sort({createdAt:-1}).limit(8).toArray()
   res.send(result)
  })
-
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
