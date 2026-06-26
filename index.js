@@ -5,6 +5,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const { createRemoteJWKSet, jwtVerify } = require('jose-cjs');
 const port =process.env.PORT || 5000;
 
 app.get('/', (req, res) => {
@@ -24,6 +25,42 @@ const client = new MongoClient(uri, {
   }
 });
 
+const JWKS=createRemoteJWKSet(new URL(`${process.env.CLIENT_URL}/api/auth/jwks`));
+const verifyToken= async(req,res,next)=>{
+  const authHeader=req.headers.authorization;
+  console.log(authHeader)
+  if(!authHeader || !authHeader.startsWith("Bearer")){
+    return res.status(401).json({message:'Unauthorized'});
+  }
+  const token=authHeader.split(" ")[1];
+  if(!token) { return res.status(401).json({message:"Unauthorized"})}
+
+  try{
+    const {payload}= await jwtVerify(token,JWKS);
+    console.log("paylaod",payload)
+    req.user=payload;
+    console.log("payload",payload)
+
+    next();
+  } catch(error){
+    console.log("JWT  Error:", error);
+    return res.status(401).json({message:"Forbidden"});
+  }
+}
+const verifyVendor=async(req,res,next)=>{
+  if ( req.user.role!=="vendor"){
+     return res.status(401).json({message:"Forbidden"});
+  }
+  next()
+}
+const verifyAdmin=async(req,res,next)=>{
+  if ( req.user.role!=="admin"){
+     return res.status(401).json({message:"Forbidden"});
+  }
+  next()
+}
+
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -36,11 +73,11 @@ async function run() {
     const paymentsCollection=db.collection("payments");
     const usersCollection=testDb.collection("user");
 
-    app.get('/api/users',async (req,res)=>{
+    app.get('/api/users', async (req,res)=>{
       const result= await usersCollection.find().toArray();
       res.send(result)
     })
-    app.patch('/api/users/role/:id',async(req,res)=>{
+    app.patch('/api/users/role/:id', verifyToken,verifyAdmin, async(req,res)=>{
          const {role}=req.body;
          const result= await usersCollection.updateOne({ _id: new ObjectId(req.params.id)},
           {
@@ -49,7 +86,7 @@ async function run() {
         )
        res.send(result) 
     })
-    app.patch('/api/users/fraud/:id',async (req,res)=>{
+    app.patch('/api/users/fraud/:id',verifyToken,verifyAdmin,async (req,res)=>{
       const id=req.params.id;
       const vendor= await usersCollection.findOne({_id:new ObjectId(id),role:"vendor"})
       if(!vendor) {return res.status(404).send({message:"Vendor not found"})}
@@ -131,12 +168,13 @@ async function run() {
         ...ticket,
         verificationStatus:"pending",
         isAdvertised: false,
+        originalQuantity:ticket.quantity,
         createdAt: new Date()
       }
       const result= await ticketsCollection.insertOne(newTicket);
       res.send(result);
     })
-    app.patch('/api/tickets/:id',async(req,res)=>{
+    app.patch('/api/tickets/:id',verifyToken,verifyVendor, async(req,res)=>{
       const id= req.params.id;
       const updateTicket=req.body;
       console.log(updateTicket)
@@ -148,7 +186,7 @@ async function run() {
       res.send(result)
     })
       
-    app.delete('/api/tickets/:id', async(req,res)=>{
+    app.delete('/api/tickets/:id',verifyToken,verifyVendor, async(req,res)=>{
       const id= req.params.id;
       const query={
         _id: new ObjectId(id)
@@ -182,7 +220,7 @@ async function run() {
     })
 
 
-    app.patch('/api/bookings/:id',async(req,res)=>{
+    app.patch('/api/bookings/:id',verifyToken,verifyVendor, async(req,res)=>{
       const id= req.params.id;
       const {status}=req.body;
       const result= await bookingsCollection.updateOne(
@@ -240,7 +278,7 @@ await ticketsCollection.updateOne({_id: new ObjectId(paymentData.ticketId)},
   res.send(result)
  })   
 
- app.get('/api/vendor/revenue/:vendorId',async (req,res)=>{
+ app.get('/api/vendor/revenue/:vendorId', async (req,res)=>{
     const result=await paymentsCollection.aggregate([
       {
         $match:{
@@ -274,7 +312,7 @@ await ticketsCollection.updateOne({_id: new ObjectId(paymentData.ticketId)},
         $group: {
           _id:null,
           totalTicketsAdded:{
-            $sum:"$quantity"
+            $sum:"$originalQuantity"
           }
         }
       }
