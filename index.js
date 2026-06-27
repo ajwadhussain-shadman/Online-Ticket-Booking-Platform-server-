@@ -147,12 +147,23 @@ async function run() {
          if(req.query.sort==="high"){
           sorting.price=-1;
          }
+         console.log("vendorId",req.query.vendorId);
+         console.log("querey",query)
         const result= await ticketsCollection.find(query).sort(sorting).skip(skip).limit(Number(limit)).toArray();
         const totalData=await ticketsCollection.countDocuments(query);
         const totalPage=Math.ceil(totalData/Number(limit))
 
         res.send({data:result,page:Number(page),totalPage});
     }) 
+
+    app.get('/api/admin/tickets',verifyToken,verifyAdmin, async(req,res)=>{
+       const result= await ticketsCollection.find().sort({createdAt:-1}).toArray();
+       res.send(result);
+    })
+    app.get("/api/approved/tickets",async(req,res)=>{
+      const result= await ticketsCollection.find({verificationStatus:'approved'}).toArray();
+       res.send(result);
+    })
 
     app.get('/api/tickets/:id',verifyToken, async (req,res)=>{
       const id = req.params.id;
